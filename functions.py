@@ -42,12 +42,19 @@ def make_menu(col, inter, sets):
 # чтение las файлов
 def load_las(file_names):
     data = []
-    for i in file_names:
-        file = lasio.read(i)
+    for i in range(len(file_names)):
+        file = lasio.read(file_names[i])
         date = datetime.strptime(file.well['DATE'].value, '%d.%m.20%y %H-%M-%S')
         data.append((date, file))
+        sg.one_line_progress_meter('Loading files', i + 1, len(file_names))
     data = np.array(data)
     return data[data[:, 0].argsort()]
+
+
+def log_print(window: sg.Window, text: str, color: str):
+    text = str(datetime.now())[:-7] + ' : ' + text
+    window['-OUT-'].print(text, text_color=color)
+    return
 
 
 # поиск ближайшей по значению точки в массиве
@@ -373,6 +380,10 @@ def make_figure_2d(data, settings):
         z.append(i[1]['TEMP'])
     x = date2num(x_t)
 
+    for i in z:
+        if len(z[0]) != len(i):
+            return 0
+
     # отрисовка
     with plt.style.context('bmh'):
         fig, ax = plt.subplots(figsize=(9, 8))
@@ -493,7 +504,7 @@ def make_figure_2d(data, settings):
 
         plt.show(block=True)
 
-    return
+    return 1
 
 
 # функция отрисовки матрицы в 3D
@@ -502,6 +513,11 @@ def make_figure_3d(data, settings):
     x = []
     y = data[0][1]['DEPTH']
     z = []
+
+    for i in z:
+        if len(z[0]) != len(i):
+            return 0
+
     for i in data:
         x.append(i[0].timestamp())
         z.append(list(i[1]['TEMP']))
@@ -529,3 +545,5 @@ def make_figure_3d(data, settings):
     p.show_grid(xlabel="Time [min]", ylabel="Depth [m]", zlabel="Temperature [C]")
     p.add_camera_orientation_widget()
     p.show(title='Visualisation 3D')
+
+    return 1

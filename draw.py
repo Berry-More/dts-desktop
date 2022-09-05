@@ -1,5 +1,5 @@
 import pandas as pd
-import functions as fn
+from functions import *
 import PySimpleGUI as sg
 import matplotlib.pyplot as plt
 
@@ -11,12 +11,14 @@ im = 'image.ico'
 
 sg.theme('SystemDefaultForReal')  # Default1
 sg.set_options(font='Cambria 12')
-figure_settings = [fn.new_color_map, 'spline36']
+figure_settings = [new_color_map, 'spline36']
 color_maps = ['new', 'coolwarm', 'bwr', 'plasma', 'jet', 'rainbow']
 interpolation = ['none', 'bilinear', 'bicubic', 'spline36']
 
-left_col = [[sg.Text('Loaded data')],
-            [sg.Listbox(values=[], enable_events=True, size=(20, 30), key='-FILE_BOX-')]]
+left_col = [[sg.Text('Loaded files')],
+            [sg.Listbox(values=[], enable_events=True, size=(50, 25), key='-FILE_BOX-')],
+            [sg.Text('Program log')],
+            [sg.Multiline(size=(56, 5), key='-OUT-', font='Courier 10')]]
 
 right_col = [[sg.Text('Visualisation:'),
               sg.Button('2D'),
@@ -26,7 +28,7 @@ right_col = [[sg.Text('Visualisation:'),
                        border_width=2, selected_row_colors=('white', '#0079d8'),
                        size=(100, 30), justification='center', col_widths=[25, 20], key='-TAB-')]]
 
-menu_object = sg.Menu(fn.make_menu(color_maps, interpolation, figure_settings))
+menu_object = sg.Menu(make_menu(color_maps, interpolation, figure_settings))
 layout = [[menu_object],
           [sg.Column(left_col, element_justification='c'),
            sg.VSeparator(),
@@ -49,23 +51,26 @@ while True:
         filenames = sg.popup_get_file('Load data', multiple_files=True,
                                       no_window=True, icon=im)
         if len(filenames) < 1:
-            sg.popup_error('Not found!', icon=im)
+            log_print(window, 'Data not exists!', 'red')
         else:
-            sg.popup_ok('Files loaded!', title='Info', icon=im)
-            data = fn.load_las(filenames)
+            log_print(window, 'Loading data...', 'black')
+            data = load_las(filenames)
             dict_data = {data[i][0]: data[i] for i in range(len(data))}
             window['-FILE_BOX-'].update(list(dict_data.keys()))
+            log_print(window, 'Files loaded!', 'green')
 
     if event in color_maps:
         if event == 'new':
-            figure_settings[0] = fn.new_color_map
+            figure_settings[0] = new_color_map
         else:
             figure_settings[0] = str(event)
-        menu_object.update(menu_definition=fn.make_menu(color_maps, interpolation, figure_settings))
+        menu_object.update(menu_definition=make_menu(color_maps, interpolation, figure_settings))
+        log_print(window, 'Color map updated: ' + event, 'black')
 
     if event in interpolation:
         figure_settings[1] = str(event)
-        menu_object.update(menu_definition=fn.make_menu(color_maps, interpolation, figure_settings))
+        menu_object.update(menu_definition=make_menu(color_maps, interpolation, figure_settings))
+        log_print(window, 'Interpolation updated: ' + event, 'black')
 
     if event == '-FILE_BOX-':
         if len(values['-FILE_BOX-']) != 0:
@@ -79,12 +84,16 @@ while True:
 
     if event == '2D':
         if len(data) == 0:
-            sg.popup_error('Data not exist!', icon=im)
+            log_print(window, 'Data not exists!', 'red')
         else:
-            fn.make_figure_2d(data, figure_settings)
+            fig2d = make_figure_2d(data, figure_settings)
+            if fig2d == 0:
+                log_print(window, 'Arrays lengths do not match!', 'red')
 
     if event == '3D':
         if len(data) == 0:
-            sg.popup_error('Data not exist!', icon=im)
+            log_print(window, 'Data not exists!', 'red')
         else:
-            fn.make_figure_3d(data, figure_settings)
+            fig3d = make_figure_3d(data, figure_settings)
+            if fig3d == 0:
+                log_print(window, 'Arrays lengths do not match!', 'red')
