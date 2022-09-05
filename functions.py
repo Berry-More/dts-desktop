@@ -124,7 +124,6 @@ class Profile:
                 plt.plot(self.yaxis, self.matrix[index], alpha=0.7, linewidth=1)
                 plt.xlabel('Depth, m')
                 plt.ylabel('Temperature, C')
-                ax.invert_yaxis()
                 fig.show()
 
                 self.xs = []
@@ -165,7 +164,6 @@ class Profile:
                 ax.xaxis_date()
                 ax.xaxis.set_major_locator(AutoDateLocator(minticks=3, maxticks=6))
                 fig.autofmt_xdate(rotation=0, ha='center')
-                ax.invert_yaxis()
                 fig.show()
 
                 self.xs = []
@@ -236,7 +234,6 @@ class AverageRectangle:
                      alpha=0.7, linewidth=1)
             plt.xlabel('Depth, m')
             plt.ylabel('Temperature, C')
-            ax.invert_yaxis()
             fig.show()
 
             self.xs = []
@@ -271,7 +268,6 @@ class AverageRectangle:
             ax.xaxis_date()
             ax.xaxis.set_major_locator(AutoDateLocator(minticks=3, maxticks=6))
             fig.autofmt_xdate(rotation=0, ha='center')
-            ax.invert_yaxis()
             fig.show()
 
             self.xs = []
