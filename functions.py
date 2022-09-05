@@ -514,14 +514,14 @@ def make_figure_3d(data, settings):
     y = data[0][1]['DEPTH']
     z = []
 
-    for i in z:
-        if len(z[0]) != len(i):
-            return 0
-
     for i in data:
         x.append(i[0].timestamp())
         z.append(list(i[1]['TEMP']))
     x = (np.array(x) - min(x))/60
+
+    for i in z:
+        if len(z[0]) != len(i):
+            return 0
 
     points = []
     for i in range(len(z)):
