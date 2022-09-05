@@ -21,6 +21,7 @@ left_col = [[sg.Text('Loaded files')],
             [sg.Multiline(size=(56, 5), key='-OUT-', font='Courier 10')]]
 
 right_col = [[sg.Text('Visualisation:'),
+              sg.Button('1D'),
               sg.Button('2D'),
               sg.Button('3D')],
              [sg.Table(values=[[]], headings=['Depth, m', 'Temp, C'], auto_size_columns=False,
@@ -40,6 +41,7 @@ layout = [[menu_object],
 window = sg.Window("DTS Processing", layout, icon=im)
 
 data = []
+tab = []
 while True:
     event, values = window.read()
 
@@ -81,6 +83,12 @@ while True:
             tab = pd.DataFrame(diction)
             values = tab.values.tolist()
             window['-TAB-'].update(values=values)
+
+    if event == '1D':
+        if len(tab) == 0:
+            log_print(window, 'Data not exists!', 'red')
+        else:
+            fig1d = make_figure_1d(tab)
 
     if event == '2D':
         if len(data) == 0:

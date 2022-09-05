@@ -368,6 +368,18 @@ class ExportRectangle:
 
 # https://jakevdp.github.io/PythonDataScienceHandbook/04.11-settings-and-stylesheets.html
 
+def make_figure_1d(tab):
+    with plt.style.context('bmh'):
+        # рисовка профиля
+        fig, ax = plt.subplots(figsize=(8, 5))
+        fig.canvas.set_window_title('Profile')
+        plt.plot(tab['DEPTH'], tab['TEMP'], alpha=0.7, linewidth=1)
+        plt.xlabel('Depth, m')
+        plt.ylabel('Temperature, C')
+        fig.show()
+    return
+
+
 # функция отрисовки матрицы в 2D
 def make_figure_2d(data, settings):
     # задание осей и матрицы
@@ -501,7 +513,6 @@ def make_figure_2d(data, settings):
             e.cidmotion = e.rect.figure.canvas.mpl_connect('motion_notify_event', e.motion)
 
         export_button.on_clicked(ex_button_func)
-
         plt.show(block=True)
 
     return 1
