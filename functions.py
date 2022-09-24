@@ -46,7 +46,8 @@ def load_las(file_names):
         file = lasio.read(file_names[i])
         date = datetime.strptime(file.well['DATE'].value, '%d.%m.20%y %H-%M-%S')
         data.append((date, file))
-        sg.one_line_progress_meter('Loading files', i + 1, len(file_names))
+        sg.one_line_progress_meter('Loading files', i + 1, len(file_names),
+                                   no_titlebar=True, no_button=True, bar_color=('limegreen', 'grey80'))
     data = np.array(data)
     return data[data[:, 0].argsort()]
 
@@ -54,7 +55,6 @@ def load_las(file_names):
 def log_print(window: sg.Window, text: str, color: str):
     text = str(datetime.now())[:-7] + ' : ' + text
     window['-OUT-'].print(text, text_color=color)
-    return
 
 
 # поиск ближайшей по значению точки в массиве
@@ -79,6 +79,7 @@ def find_2_points(x, y, xs, ys):
 class Profile:
     def __init__(self, line, xaxis, yaxis, matrix):
         self.line = line  # plt.plot - рисунок который будем выводить (пустой)
+        self.background = 0  # Изображение матрицы, которое мы храним, когда профиль движется
         self.xaxis = xaxis  # ось времен
         self.yaxis = yaxis  # ось расстояния
         self.matrix = matrix  # матрица температур
@@ -89,15 +90,15 @@ class Profile:
         self.cidpicking = 0  # переменная отвечающая за отклик по нажатию мыши
         self.cidmotion = 0  # переменная отвечающая за движение мыши
 
-        # Отрисовка профиля
+    def disconnect(self):
+        self.line.figure.canvas.mpl_disconnect(self.cidpicking)
+        self.line.figure.canvas.mpl_disconnect(self.cidmotion)
+
+    def update(self):
         canvas = self.line.figure.canvas
         self.line.set_animated(True)
         canvas.draw()
         self.background = canvas.copy_from_bbox(self.line.axes.bbox)
-
-    def disconnect(self):
-        self.line.figure.canvas.mpl_disconnect(self.cidpicking)
-        self.line.figure.canvas.mpl_disconnect(self.cidmotion)
 
     def motion_y(self, event):
         if len(self.xs) == 1:
@@ -117,8 +118,8 @@ class Profile:
                 return
             self.xs.append(event.xdata)  # добавляем в массив с х
             self.ys.append(event.ydata)  # добавляем в массив с у
-            self.line.set_data(self.xs, self.ys)  # обновляем данные рисунка
-            self.line.figure.canvas.draw()  # перерисывываем
+            # self.line.set_data(self.xs, self.ys)  # обновляем данные рисунка
+            # self.line.figure.canvas.draw()  # перерисывываем
 
             # отрисовка профиля
             if len(self.xs) == 1:  # Когда
@@ -154,8 +155,8 @@ class Profile:
                 return
             self.xs.append(event.xdata)  # добавляем в массив с х
             self.ys.append(event.ydata)  # добавляем в массив с у
-            self.line.set_data(self.xs, self.ys)  # обновляем данные рисунка
-            self.line.figure.canvas.draw()  # перерисывываем
+            # self.line.set_data(self.xs, self.ys)  # обновляем данные рисунка
+            # self.line.figure.canvas.draw()  # перерисывываем
 
             # отрисовка профиля
             if len(self.xs) == 1:  # Когда
@@ -180,6 +181,7 @@ class Profile:
 class AverageRectangle:
     def __init__(self, rect, xaxis, yaxis, matrix):
         self.rect = rect
+        self.background = 0  # Изображение матрицы, которое мы храним, когда профиль движется
         self.xaxis = xaxis  # ось времен
         self.yaxis = yaxis  # ось расстояния
         self.matrix = matrix  # матрица температур
@@ -192,17 +194,16 @@ class AverageRectangle:
         self.cidmotion = 0  # переменная отвечающая за движение мыши
         self.cidrelease = 0
 
-        # Отрисовка профиля
-        canvas = self.rect.figure.canvas
-        self.rect.set_animated(True)
-        canvas.draw()
-        self.background = canvas.copy_from_bbox(self.rect.axes.bbox)
-
     def disconnect(self):
         self.rect.figure.canvas.mpl_disconnect(self.cidpicking)
         self.rect.figure.canvas.mpl_disconnect(self.cidmotion)
         self.rect.figure.canvas.mpl_disconnect(self.cidrelease)
-        self.rect.figure.canvas.draw()  # перерисывываем
+
+    def update(self):
+        canvas = self.rect.figure.canvas
+        self.rect.set_animated(True)
+        canvas.draw()
+        self.background = canvas.copy_from_bbox(self.rect.axes.bbox)
 
     def picking(self, event):
         if event.button == 1:  # условие при нажатии на левую кнопку мыши
@@ -213,7 +214,6 @@ class AverageRectangle:
             self.ys.append(event.ydata)  # добавляем в массив с у
             self.rect.set_x(self.xs[0])  # обновляем данные рисунка
             self.rect.set_y(self.ys[0])
-            self.rect.figure.canvas.draw()  # перерисывываем
 
     def release_x(self, event):
         if len(self.xs) == 1:
@@ -299,6 +299,7 @@ class AverageRectangle:
 class ExportRectangle:
     def __init__(self, rect, xaxis, yaxis, matrix):
         self.rect = rect
+        self.background = 0  # Изображение матрицы, которое мы храним, когда профиль движется
         self.xaxis = xaxis  # ось времен
         self.yaxis = yaxis  # ось расстояния
         self.matrix = matrix  # матрица температур
@@ -309,16 +310,15 @@ class ExportRectangle:
         self.cidpicking = 0  # переменная отвечающая за отклик по нажатию мыши
         self.cidmotion = 0  # переменная отвечающая за движение мыши
 
-        # Отрисовка профиля
+    def disconnect(self):
+        self.rect.figure.canvas.mpl_disconnect(self.cidpicking)
+        self.rect.figure.canvas.mpl_disconnect(self.cidmotion)
+
+    def update(self):
         canvas = self.rect.figure.canvas
         self.rect.set_animated(True)
         canvas.draw()
         self.background = canvas.copy_from_bbox(self.rect.axes.bbox)
-
-    def disconnect(self):
-        self.rect.figure.canvas.mpl_disconnect(self.cidpicking)
-        self.rect.figure.canvas.mpl_disconnect(self.cidmotion)
-        self.rect.figure.canvas.draw()  # перерисывываем
 
     def motion(self, event):
         if event.inaxes != None:
@@ -343,7 +343,6 @@ class ExportRectangle:
             self.ys.append(event.ydata)  # добавляем в массив с у
             self.rect.set_x(self.xs[0])  # обновляем данные рисунка
             self.rect.set_y(self.ys[0])
-            self.rect.figure.canvas.draw()  # перерисывываем
 
         if len(self.xs) == 2:
             self.disconnect()
@@ -368,6 +367,7 @@ class ExportRectangle:
 
 # https://jakevdp.github.io/PythonDataScienceHandbook/04.11-settings-and-stylesheets.html
 
+# функция отрисовки отдельного массива
 def make_figure_1d(tab):
     with plt.style.context('bmh'):
         # рисовка профиля
@@ -377,7 +377,6 @@ def make_figure_1d(tab):
         plt.xlabel('Depth, m')
         plt.ylabel('Temperature, C')
         fig.show()
-    return
 
 
 # функция отрисовки матрицы в 2D
@@ -394,7 +393,7 @@ def make_figure_2d(data, settings):
 
     for i in z:
         if len(z[0]) != len(i):
-            return 0
+            return 1
 
     # отрисовка
     with plt.style.context('bmh'):
@@ -428,6 +427,7 @@ def make_figure_2d(data, settings):
             a.disconnect()
             e.disconnect()
 
+            p.update()
             p.cidpicking = p.line.figure.canvas.mpl_connect('button_press_event', p.picking_x)
             p.cidmotion = p.line.figure.canvas.mpl_connect('motion_notify_event', p.motion_x)
 
@@ -442,6 +442,7 @@ def make_figure_2d(data, settings):
             a.disconnect()
             e.disconnect()
 
+            p.update()
             p.cidpicking = p.line.figure.canvas.mpl_connect('button_press_event', p.picking_y)
             p.cidmotion = p.line.figure.canvas.mpl_connect('motion_notify_event', p.motion_y)
         profile_y_button.on_clicked(prof_y_button_func)
@@ -471,6 +472,7 @@ def make_figure_2d(data, settings):
 
             a.rect.set_height(0)
             a.rect.set_width(0)
+            a.update()
             a.cidpicking = a.rect.figure.canvas.mpl_connect('button_press_event', a.picking)
             a.cidmotion = a.rect.figure.canvas.mpl_connect('motion_notify_event', a.motion)
             a.cidrelease = a.rect.figure.canvas.mpl_connect('button_release_event', a.release_y)
@@ -488,6 +490,7 @@ def make_figure_2d(data, settings):
 
             a.rect.set_height(0)
             a.rect.set_width(0)
+            a.update()
             a.cidpicking = a.rect.figure.canvas.mpl_connect('button_press_event', a.picking)
             a.cidmotion = a.rect.figure.canvas.mpl_connect('motion_notify_event', a.motion)
             a.cidrelease = a.rect.figure.canvas.mpl_connect('button_release_event', a.release_x)
@@ -509,13 +512,12 @@ def make_figure_2d(data, settings):
 
             e.rect.set_height(0)
             e.rect.set_width(0)
+            e.update()
             e.cidpicking = e.rect.figure.canvas.mpl_connect('button_press_event', e.picking)
             e.cidmotion = e.rect.figure.canvas.mpl_connect('motion_notify_event', e.motion)
 
         export_button.on_clicked(ex_button_func)
         plt.show(block=True)
-
-    return 1
 
 
 # функция отрисовки матрицы в 3D
@@ -532,7 +534,7 @@ def make_figure_3d(data, settings):
 
     for i in z:
         if len(z[0]) != len(i):
-            return 0
+            return 1
 
     points = []
     for i in range(len(z)):
@@ -556,5 +558,3 @@ def make_figure_3d(data, settings):
     p.show_grid(xlabel="Time [min]", ylabel="Depth [m]", zlabel="Temperature [C]")
     p.add_camera_orientation_widget()
     p.show(title='Visualisation 3D')
-
-    return 1

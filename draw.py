@@ -95,7 +95,7 @@ while True:
             log_print(window, 'Data not exists!', 'red')
         else:
             fig2d = make_figure_2d(data, figure_settings)
-            if fig2d == 0:
+            if fig2d == 1:
                 log_print(window, 'Arrays lengths do not match!', 'red')
 
     if event == '3D':
@@ -103,5 +103,5 @@ while True:
             log_print(window, 'Data not exists!', 'red')
         else:
             fig3d = make_figure_3d(data, figure_settings)
-            if fig3d == 0:
+            if fig3d == 1:
                 log_print(window, 'Arrays lengths do not match!', 'red')
