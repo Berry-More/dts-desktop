@@ -10,3 +10,5 @@ vtkmodules.vtkImagingMath
 vtkmodules.vtkViewsCore
 
 это так называемые пакеты скрытого импорта, их не видит пайинсталер их надо добавлять вручную
+
+pyinstaller -w draw.py --hidden-import=

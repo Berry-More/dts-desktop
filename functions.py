@@ -1,3 +1,4 @@
+import time
 import lasio
 import numpy as np
 import pyvista as pv
@@ -520,6 +521,49 @@ def make_figure_2d(data, settings):
         plt.show(block=True)
 
 
+class Profile3D:
+    def __init__(self, plotter, basic_mesh):
+        self.plotter = plotter
+        self.basic_mesh = basic_mesh
+        self.points_set = []
+        self.line = 0
+
+        # key events
+        self.plotter.add_key_event('l', self.clicking)
+        self.plotter.add_key_event('c', self.clear)
+
+    def clicking(self):
+        self.plotter.track_click_position(callback=self.plotting, side='right', double=True)
+        self.plotter.track_click_position(callback=self.choosing, side='right')
+
+    def clear(self):
+        if len(self.points_set) != 0 or self.line != 0:
+            self.plotter.remove_actor(self.line)
+            self.points_set = []
+            self.line = 0
+
+    def choosing(self, position):
+        self.clear()
+
+        if len(self.points_set) != 0:
+            self.plotter.remove_actor(self.line)
+
+        self.points_set = []
+        minimum = np.abs(self.basic_mesh.points.T[0] - position[0]).min()
+        for i in self.basic_mesh.points:
+            if abs(i[0] - position[0]) == minimum:
+                self.points_set.append(i)
+
+        self.line = self.plotter.add_mesh(pv.MultipleLines(self.points_set), color='black', line_width=5)
+
+    def plotting(self, position):
+        self.plotter.untrack_click_position(side='right')
+        self.points_set = np.array(self.points_set)
+        data = {'DEPTH': self.points_set.T[1], 'TEMP': self.points_set.T[2]}
+        make_figure_1d(data)
+        self.points_set = []
+
+
 # функция отрисовки матрицы в 3D
 def make_figure_3d(data, settings):
     # задание осей и матрицы
@@ -545,16 +589,24 @@ def make_figure_3d(data, settings):
     surf = cloud.delaunay_2d()
     surf['Temperature'] = np.reshape(z, len(z) * len(z[0]))
 
-    # surf.rotate_z(180, inplace=True)
-    surf.scale([1/max(x), 1/max(y), 0.5/np.matrix(z).max()], inplace=True)
-
     pv.global_theme.cmap = settings[0]
     pv.global_theme.font.color = 'black'
 
-    p = pv.Plotter(notebook=False)
-    # p.set_scale(xscale=10/max(x), yscale=10/max(y), zscale=5/np.matrix(z).max())
+    p = pv.Plotter(lighting=None,  notebook=False, line_smoothing=True, polygon_smoothing=True)
+    p.set_scale(xscale=1 / max(x), yscale=1 / max(y), zscale=0.5 / np.matrix(z).max())
+
     p.set_background('white')
-    p.add_mesh(surf)
-    p.show_grid(xlabel="Time [min]", ylabel="Depth [m]", zlabel="Temperature [C]")
+
+    p.add_mesh(surf, show_scalar_bar=False)
+    p.show_bounds(mesh=surf, bold=False, font_size=14, font_family='courier',
+                  xlabel='Time [min]', ylabel='Depth [m]', zlabel='Temperature [C]', grid=True,
+                  padding=0.05, ticks='both', location='outer')
+    p.show_axes_all()
+
+    Profile3D(p, surf)
+
+    p.add_scalar_bar('Temperature [C]', vertical=True, font_family='courier',
+                     title_font_size=14, label_font_size=14)
+
     p.add_camera_orientation_widget()
     p.show(title='Visualisation 3D')
