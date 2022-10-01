@@ -1,4 +1,3 @@
-import time
 import lasio
 import numpy as np
 import pyvista as pv
@@ -369,14 +368,14 @@ class ExportRectangle:
 # https://jakevdp.github.io/PythonDataScienceHandbook/04.11-settings-and-stylesheets.html
 
 # функция отрисовки отдельного массива
-def make_figure_1d(tab):
+def make_figure_1d(tab, x_label='Depth, m', y_label='Temperature, C'):
     with plt.style.context('bmh'):
         # рисовка профиля
         fig, ax = plt.subplots(figsize=(8, 5))
         fig.canvas.set_window_title('Profile')
         plt.plot(tab['DEPTH'], tab['TEMP'], alpha=0.7, linewidth=1)
-        plt.xlabel('Depth, m')
-        plt.ylabel('Temperature, C')
+        plt.xlabel(x_label)
+        plt.ylabel(y_label)
         fig.show()
 
 
@@ -527,6 +526,7 @@ class Profile3D:
         self.basic_mesh = basic_mesh
         self.points_set = []
         self.line = 0
+        self.depth_mode = True
 
         # key events
         self.plotter.add_key_event('l', self.clicking)
@@ -534,6 +534,7 @@ class Profile3D:
 
     def clicking(self):
         self.plotter.track_click_position(callback=self.plotting, side='right', double=True)
+        self.plotter.track_click_position(callback=self.mode_change, side='left', double=True)
         self.plotter.track_click_position(callback=self.choosing, side='right')
 
     def clear(self):
@@ -549,19 +550,43 @@ class Profile3D:
             self.plotter.remove_actor(self.line)
 
         self.points_set = []
-        minimum = np.abs(self.basic_mesh.points.T[0] - position[0]).min()
-        for i in self.basic_mesh.points:
-            if abs(i[0] - position[0]) == minimum:
-                self.points_set.append(i)
+
+        if self.depth_mode:
+            minimum = np.abs(self.basic_mesh.points.T[0] - position[0]).min()
+            for i in self.basic_mesh.points:
+                if abs(i[0] - position[0]) == minimum:
+                    self.points_set.append(i)
+
+        else:
+            minimum = np.abs(self.basic_mesh.points.T[1] - position[1]).min()
+            for i in self.basic_mesh.points:
+                if abs(i[1] - position[1]) == minimum:
+                    self.points_set.append(i)
 
         self.line = self.plotter.add_mesh(pv.MultipleLines(self.points_set), color='black', line_width=5)
 
     def plotting(self, position):
         self.plotter.untrack_click_position(side='right')
+        self.plotter.untrack_click_position(side='left')
         self.points_set = np.array(self.points_set)
-        data = {'DEPTH': self.points_set.T[1], 'TEMP': self.points_set.T[2]}
-        make_figure_1d(data)
+
+        if self.depth_mode:
+            data = {'DEPTH': self.points_set.T[1], 'TEMP': self.points_set.T[2]}
+            make_figure_1d(data)
+
+        else:
+            data = {'DEPTH': self.points_set.T[0], 'TEMP': self.points_set.T[2]}
+            make_figure_1d(data, x_label='Time, min')
+
         self.points_set = []
+
+    def mode_change(self, position):
+        if self.depth_mode:
+            self.depth_mode = False
+            self.choosing(self.points_set[int(len(self.points_set)//2)])
+        else:
+            self.depth_mode = True
+            self.choosing(self.points_set[int(len(self.points_set)//2)])
 
 
 # функция отрисовки матрицы в 3D
