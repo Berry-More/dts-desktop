@@ -84,7 +84,10 @@ class Profile:
         self.yaxis = yaxis  # ось расстояния
         self.matrix = matrix  # матрица температур
         self.xs = list(line.get_xdata())  # значения времени в пикируемых точках
-        self.ys = list(line.get_ydata())  # значения расстояния в пикируемых точках
+        self.ys = list(line.get_ydata())  # значения расстояния в пикируемых точкха
+
+        self.fig = 0
+        self.ax = 0
 
         # Контроль событий
         self.cidpicking = 0  # переменная отвечающая за отклик по нажатию мыши
@@ -118,8 +121,6 @@ class Profile:
                 return
             self.xs.append(event.xdata)  # добавляем в массив с х
             self.ys.append(event.ydata)  # добавляем в массив с у
-            # self.line.set_data(self.xs, self.ys)  # обновляем данные рисунка
-            # self.line.figure.canvas.draw()  # перерисывываем
 
             # отрисовка профиля
             if len(self.xs) == 1:  # Когда
@@ -127,12 +128,41 @@ class Profile:
                 index = find_point(self.xaxis, self.xs[0])
 
                 # рисовка профиля
-                fig, ax = plt.subplots(figsize=(8, 5))
-                fig.canvas.set_window_title('Profile')
-                plt.plot(self.yaxis, self.matrix[index], alpha=0.7, linewidth=1)
-                plt.xlabel('Depth, m')
-                plt.ylabel('Temperature, C')
-                fig.show()
+                if self.fig == 0 or not plt.fignum_exists(self.fig.number):
+                    self.fig, self.ax = plt.subplots(figsize=(5, 8))
+                    self.fig.canvas.set_window_title('Profile')
+                    self.ax.plot(self.matrix[index], self.yaxis, alpha=0.7, linewidth=1,
+                                 label=str(num2date(self.xs[0]))[:-13])
+                    plt.xlabel('Temperature, C')
+                    plt.ylabel('Depth, m')
+                    self.ax.invert_yaxis()
+                    self.ax.legend()
+
+                    plt.figtext(0.25, 0.925, 'Press to "A" - add line', size=13, ha='center')
+
+                    def add_button_func(event):
+                        if event.key == 'a':
+                            base_line_path = sg.popup_get_file('Choose base line .las', no_window=True)
+                            if len(base_line_path) != 0:
+                                graph_label = sg.popup_get_text('Enter line name:')
+
+                                data = load_las([base_line_path])[0][1]
+
+                                self.ax.plot(data['TEMP'], data['DEPTH'], alpha=0.7, linewidth=1,
+                                             label=graph_label)
+                                self.ax.get_legend().remove()
+                                self.ax.legend()
+                                self.fig.canvas.draw()
+
+                    plt.connect('key_press_event', add_button_func)
+
+                    self.fig.show()
+                else:
+                    self.ax.plot(self.matrix[index], self.yaxis, alpha=0.7, linewidth=1,
+                                 label=str(num2date(self.xs[0]))[:-13])
+                    self.ax.get_legend().remove()
+                    self.ax.legend()
+                    self.fig.canvas.draw()
 
                 self.xs = []
                 self.ys = []
@@ -164,15 +194,15 @@ class Profile:
                 index = find_point(self.yaxis, self.ys[0])
 
                 # рисовка профиля
-                fig, ax = plt.subplots(figsize=(8, 5))
-                fig.canvas.set_window_title('Profile')
+                self.fig, self.ax = plt.subplots(figsize=(8, 5))
+                self.fig.canvas.set_window_title('Profile')
                 plt.plot(self.xaxis, np.array(self.matrix).T[index], alpha=0.7, linewidth=1)
                 plt.xlabel('Time, date')
                 plt.ylabel('Temperature, C')
-                ax.xaxis_date()
-                ax.xaxis.set_major_locator(AutoDateLocator(minticks=3, maxticks=6))
-                fig.autofmt_xdate(rotation=0, ha='center')
-                fig.show()
+                self.ax.xaxis_date()
+                self.ax.xaxis.set_major_locator(AutoDateLocator(minticks=3, maxticks=6))
+                self.fig.autofmt_xdate(rotation=0, ha='center')
+                self.fig.show()
 
                 self.xs = []
                 self.ys = []
@@ -368,12 +398,13 @@ class ExportRectangle:
 # https://jakevdp.github.io/PythonDataScienceHandbook/04.11-settings-and-stylesheets.html
 
 # функция отрисовки отдельного массива
-def make_figure_1d(tab, x_label='Depth, m', y_label='Temperature, C'):
+def make_figure_1d(tab, y_label='Depth, m', x_label='Temperature, C'):
     with plt.style.context('bmh'):
         # рисовка профиля
-        fig, ax = plt.subplots(figsize=(8, 5))
+        fig, ax = plt.subplots(figsize=(5, 8))
         fig.canvas.set_window_title('Profile')
-        plt.plot(tab['DEPTH'], tab['TEMP'], alpha=0.7, linewidth=1)
+        plt.plot(tab['TEMP'], tab['DEPTH'], alpha=0.7, linewidth=1)
+        ax.invert_yaxis()
         plt.xlabel(x_label)
         plt.ylabel(y_label)
         fig.show()
@@ -520,6 +551,19 @@ def make_figure_2d(data, settings):
         plt.show(block=True)
 
 
+def show(tab: dict, x_axes: str):
+    chart = pv.Chart2D(x_label=x_axes, y_label='Temperature, C')
+    chart.line(x=tab['DEPTH'], y=tab['TEMP'], width=2)
+
+    chart.x_axis.label_size = 20
+    chart.y_axis.label_size = 20
+    chart.x_axis.tick_label_size = 16
+    chart.y_axis.tick_label_size = 16
+
+    pv.global_theme.title = 'Profile'
+    chart.show()
+
+
 class Profile3D:
     def __init__(self, plotter, basic_mesh):
         self.plotter = plotter
@@ -572,11 +616,11 @@ class Profile3D:
 
         if self.depth_mode:
             data = {'DEPTH': self.points_set.T[1], 'TEMP': self.points_set.T[2]}
-            make_figure_1d(data)
+            show(data, 'Depth, m')
 
         else:
             data = {'DEPTH': self.points_set.T[0], 'TEMP': self.points_set.T[2]}
-            make_figure_1d(data, x_label='Time, min')
+            show(data, 'Time, min')
 
         self.points_set = []
 

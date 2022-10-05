@@ -94,14 +94,18 @@ while True:
         if len(data) == 0:
             log_print(window, 'Data not exists!', 'red')
         else:
+            window.Hide()
             fig2d = make_figure_2d(data, figure_settings)
             if fig2d == 1:
                 log_print(window, 'Arrays lengths do not match!', 'red')
+            window.UnHide()
 
     if event == '3D':
         if len(data) == 0:
             log_print(window, 'Data not exists!', 'red')
         else:
+            window.Hide()
             fig3d = make_figure_3d(data, figure_settings)
             if fig3d == 1:
                 log_print(window, 'Arrays lengths do not match!', 'red')
+            window.UnHide()

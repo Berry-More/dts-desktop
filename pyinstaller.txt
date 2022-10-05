@@ -11,4 +11,4 @@ vtkmodules.vtkViewsCore
 
 это так называемые пакеты скрытого импорта, их не видит пайинсталер их надо добавлять вручную
 
-pyinstaller -w draw.py --hidden-import=
+pyinstaller -wF draw.py --hidden-import=vtkmodules.vtkIOCore --hidden-import=vtkmodules.vtkCommonMisc --hidden-import=vtkmodules.vtkFiltersGeneral --hidden-import=vtkmodules.vtkIOXML --hidden-import=vtkmodules.vtkIOXMLParser --hidden-import=vtkmodules.vtkRenderingHyperTreeGrid --hidden-import=vtkmodules.vtkImagingMath --hidden-import=vtkmodules.vtkViewsCore --icon=image.ico
