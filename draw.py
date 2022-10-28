@@ -3,7 +3,6 @@ from functions import *
 import PySimpleGUI as sg
 import matplotlib.pyplot as plt
 
-
 #
 # Задание объектов интерфейса
 
@@ -38,7 +37,7 @@ layout = [[menu_object],
 #
 # Создание рабочего окна и цикла
 
-window = sg.Window("DTS Processing", layout, icon=im)
+window = sg.Window("DTSview", layout, icon=im)
 
 data = []
 tab = []

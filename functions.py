@@ -10,6 +10,8 @@ from matplotlib.patches import Rectangle
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.dates import date2num, num2date, AutoDateLocator
 
+# отрисовывать пропуски в данных
+
 
 color_list = ['mediumblue', 'dodgerblue', 'lightskyblue',
               'springgreen', 'greenyellow', 'yellow',
@@ -85,6 +87,7 @@ class Profile:
         self.matrix = matrix  # матрица температур
         self.xs = list(line.get_xdata())  # значения времени в пикируемых точках
         self.ys = list(line.get_ydata())  # значения расстояния в пикируемых точкха
+        self.traces = []
 
         self.fig = 0
         self.ax = 0
@@ -102,6 +105,13 @@ class Profile:
         self.line.set_animated(True)
         canvas.draw()
         self.background = canvas.copy_from_bbox(self.line.axes.bbox)
+
+    def clear(self):
+        for i in self.traces:
+            i = i.pop(0)
+            i.remove()
+        self.traces = []
+        self.update()
 
     def motion_y(self, event):
         if len(self.xs) == 1:
@@ -127,21 +137,25 @@ class Profile:
                 self.disconnect()
                 index = find_point(self.xaxis, self.xs[0])
 
+                axes = self.line.axes
+                self.traces.append(axes.plot([self.xs[0], self.xs[0]], [min(self.yaxis), max(self.yaxis)],
+                                             c='black', linewidth=0.75, linestyle='--'))
+
                 # рисовка профиля
                 if self.fig == 0 or not plt.fignum_exists(self.fig.number):
                     self.fig, self.ax = plt.subplots(figsize=(5, 8))
-                    self.fig.canvas.set_window_title('Profile')
+                    self.fig.canvas.set_window_title('Temperature log')
                     self.ax.plot(self.matrix[index], self.yaxis, alpha=0.7, linewidth=1,
                                  label=str(num2date(self.xs[0]))[:-13])
-                    plt.xlabel('Temperature, C')
+                    plt.xlabel('Temperature, C°')
                     plt.ylabel('Depth, m')
+                    plt.ylim(min(self.yaxis), max(self.yaxis))
+                    plt.subplots_adjust(left=0.12, right=0.95, bottom=0.07, top=0.965)
                     self.ax.invert_yaxis()
                     self.ax.legend()
 
-                    plt.figtext(0.25, 0.925, 'Press to "A" - add line', size=13, ha='center')
-
                     def add_button_func(event):
-                        if event.key == 'a':
+                        if event.key == 'a' or event.key == 'ф':
                             base_line_path = sg.popup_get_file('Choose base line .las', no_window=True)
                             if len(base_line_path) != 0:
                                 graph_label = sg.popup_get_text('Enter line name:')
@@ -167,6 +181,8 @@ class Profile:
                 self.xs = []
                 self.ys = []
 
+                self.update()
+
     def motion_x(self, event):
         if len(self.xs) == 1:
             return
@@ -186,7 +202,12 @@ class Profile:
             self.xs.append(event.xdata)  # добавляем в массив с х
             self.ys.append(event.ydata)  # добавляем в массив с у
             # self.line.set_data(self.xs, self.ys)  # обновляем данные рисунка
+
             # self.line.figure.canvas.draw()  # перерисывываем
+
+            axes = self.line.axes
+            self.traces.append(axes.plot([min(self.xaxis), max(self.xaxis)], [self.ys[0], self.ys[0]],
+                                         c='black', linewidth=0.75, linestyle='--'))
 
             # отрисовка профиля
             if len(self.xs) == 1:  # Когда
@@ -195,10 +216,10 @@ class Profile:
 
                 # рисовка профиля
                 self.fig, self.ax = plt.subplots(figsize=(8, 5))
-                self.fig.canvas.set_window_title('Profile')
+                self.fig.canvas.set_window_title('Temperature log')
                 plt.plot(self.xaxis, np.array(self.matrix).T[index], alpha=0.7, linewidth=1)
                 plt.xlabel('Time, date')
-                plt.ylabel('Temperature, C')
+                plt.ylabel('Temperature, C°')
                 self.ax.xaxis_date()
                 self.ax.xaxis.set_major_locator(AutoDateLocator(minticks=3, maxticks=6))
                 self.fig.autofmt_xdate(rotation=0, ha='center')
@@ -206,6 +227,8 @@ class Profile:
 
                 self.xs = []
                 self.ys = []
+
+                self.update()
 
 
 class AverageRectangle:
@@ -218,6 +241,9 @@ class AverageRectangle:
         self.xs = []  # значения времени в пикируемых точках
         self.ys = []  # значения расстояния в пикируемых точках
         self.press = False
+
+        self.fig = 0
+        self.ax = 0
 
         # Контроль событий
         self.cidpicking = 0  # переменная отвечающая за отклик по нажатию мыши
@@ -264,14 +290,16 @@ class AverageRectangle:
                 matrix_for_average.append(self.matrix[i][min(points[1]):max(points[1])])
 
             # рисовка профиля
-            fig, ax = plt.subplots(figsize=(8, 5))
-            fig.canvas.set_window_title('Average profile')
-            plt.plot(self.yaxis[min(points[1]):max(points[1])],
-                     np.sum(np.array(matrix_for_average)/(max(points[0])+1 - min(points[0])), axis=0),
+            self.fig, self.ax = plt.subplots(figsize=(5, 8))
+            self.fig.canvas.set_window_title('Average temperature log')
+            plt.plot(np.sum(np.array(matrix_for_average)/(max(points[0])+1 - min(points[0])), axis=0),
+                     self.yaxis[min(points[1]):max(points[1])],
                      alpha=0.7, linewidth=1)
-            plt.xlabel('Depth, m')
-            plt.ylabel('Temperature, C')
-            fig.show()
+            plt.ylabel('Depth, m')
+            plt.xlabel('Temperature, C°')
+            plt.subplots_adjust(left=0.12, right=0.95, bottom=0.07, top=0.965)
+            self.ax.invert_yaxis()
+            self.fig.show()
 
             self.xs = []
             self.ys = []
@@ -295,17 +323,17 @@ class AverageRectangle:
                 matrix_for_average.append(self.matrix[i][min(points[1]):max(points[1])])
 
             # рисовка профиля
-            fig, ax = plt.subplots(figsize=(8, 5))
-            fig.canvas.set_window_title('Average profile')
+            self.fig, self.ax = plt.subplots(figsize=(8, 5))
+            self.fig.canvas.set_window_title('Average temperature log')
             plt.plot(self.xaxis[min(points[0]):max(points[0])+1],
                      np.sum(np.array(matrix_for_average)/(max(points[1]) - min(points[1])), axis=1),
                      alpha=0.7, linewidth=1)
             plt.xlabel('Time, date')
-            plt.ylabel('Temperature, C')
-            ax.xaxis_date()
-            ax.xaxis.set_major_locator(AutoDateLocator(minticks=3, maxticks=6))
-            fig.autofmt_xdate(rotation=0, ha='center')
-            fig.show()
+            plt.ylabel('Temperature, C°')
+            self.ax.xaxis_date()
+            self.ax.xaxis.set_major_locator(AutoDateLocator(minticks=3, maxticks=6))
+            self.fig.autofmt_xdate(rotation=0, ha='center')
+            self.fig.show()
 
             self.xs = []
             self.ys = []
@@ -398,15 +426,16 @@ class ExportRectangle:
 # https://jakevdp.github.io/PythonDataScienceHandbook/04.11-settings-and-stylesheets.html
 
 # функция отрисовки отдельного массива
-def make_figure_1d(tab, y_label='Depth, m', x_label='Temperature, C'):
+def make_figure_1d(tab, y_label='Depth, m', x_label='Temperature, C°'):
     with plt.style.context('bmh'):
         # рисовка профиля
         fig, ax = plt.subplots(figsize=(5, 8))
-        fig.canvas.set_window_title('Profile')
+        fig.canvas.set_window_title('Temperature log')
         plt.plot(tab['TEMP'], tab['DEPTH'], alpha=0.7, linewidth=1)
         ax.invert_yaxis()
         plt.xlabel(x_label)
         plt.ylabel(y_label)
+        plt.subplots_adjust(left=0.12, right=0.95, bottom=0.07, top=0.965)
         fig.show()
 
 
@@ -429,7 +458,7 @@ def make_figure_2d(data, settings):
     # отрисовка
     with plt.style.context('bmh'):
         fig, ax = plt.subplots(figsize=(9, 8))
-        fig.canvas.set_window_title('Visualisation 2D')
+        fig.canvas.set_window_title('Thermogram 2D')
         graph = ax.imshow(np.array(z).T, cmap=settings[0],
                           interpolation=settings[1],
                           origin='lower', aspect='auto',
@@ -444,7 +473,7 @@ def make_figure_2d(data, settings):
         ax.invert_yaxis()
 
         # ------------------------------- Кнопки отрисовки профилей -------------------------------------
-        plt.figtext(0.925, 0.9, 'Profile', size=13, ha='center')  # подпись для кнопок
+        plt.figtext(0.925, 0.9, 'Log', size=13, ha='center')  # подпись для кнопок
 
         line, = ax.plot([], [], '-', c='black', linewidth=0.75)  # пустая линия
         p = Profile(line, x, y, z)  # элемент класса профиль
@@ -548,11 +577,18 @@ def make_figure_2d(data, settings):
             e.cidmotion = e.rect.figure.canvas.mpl_connect('motion_notify_event', e.motion)
 
         export_button.on_clicked(ex_button_func)
+
+        def clear_button_func(event):
+            if event.key == 'c' or event.key == 'с':
+                p.clear()
+
+        plt.connect('key_press_event', clear_button_func)
+
         plt.show(block=True)
 
 
 def show(tab: dict, x_axes: str):
-    chart = pv.Chart2D(x_label=x_axes, y_label='Temperature, C')
+    chart = pv.Chart2D(x_label=x_axes, y_label='Temperature, C°')
     chart.line(x=tab['DEPTH'], y=tab['TEMP'], width=2)
 
     chart.x_axis.label_size = 20
@@ -560,7 +596,7 @@ def show(tab: dict, x_axes: str):
     chart.x_axis.tick_label_size = 16
     chart.y_axis.tick_label_size = 16
 
-    pv.global_theme.title = 'Profile'
+    pv.global_theme.title = 'Line'
     chart.show()
 
 
@@ -661,21 +697,22 @@ def make_figure_3d(data, settings):
     pv.global_theme.cmap = settings[0]
     pv.global_theme.font.color = 'black'
 
-    p = pv.Plotter(lighting=None,  notebook=False, line_smoothing=True, polygon_smoothing=True)
+    p = pv.Plotter(lighting=None, notebook=False, border=True)
     p.set_scale(xscale=1 / max(x), yscale=1 / max(y), zscale=0.5 / np.matrix(z).max())
 
     p.set_background('white')
 
     p.add_mesh(surf, show_scalar_bar=False)
-    p.show_bounds(mesh=surf, bold=False, font_size=14, font_family='courier',
-                  xlabel='Time [min]', ylabel='Depth [m]', zlabel='Temperature [C]', grid=True,
-                  padding=0.05, ticks='both', location='outer')
-    p.show_axes_all()
+    # p.show_bounds(mesh=surf, bold=False, font_size=14, font_family='courier',
+    #               xlabel='Time, min', ylabel='Depth, m', zlabel='Temperature, C°', grid='front',
+    #               render=True, all_edges=False, ticks='both', location='outer')
+    # p.show_axes_all()
 
     Profile3D(p, surf)
 
-    p.add_scalar_bar('Temperature [C]', vertical=True, font_family='courier',
+    p.add_scalar_bar('Temperature, C°', vertical=True, font_family='courier',
                      title_font_size=14, label_font_size=14)
 
     p.add_camera_orientation_widget()
-    p.show(title='Visualisation 3D')
+    p.show(title='Thermogram 3D')
+
