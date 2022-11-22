@@ -40,7 +40,9 @@ layout = [[menu_object],
 window = sg.Window("DTSview", layout, icon=im)
 
 data = []
+dict_data = []
 tab = []
+f1d = None
 while True:
     event, values = window.read()
 
@@ -87,7 +89,11 @@ while True:
         if len(tab) == 0:
             log_print(window, 'Data not exists!', 'red')
         else:
-            fig1d = make_figure_1d(tab)
+            if f1d is None:
+                f1d = Figure1D()
+                f1d.draw_line(tab, values['-FILE_BOX-'][0])
+            else:
+                f1d.draw_line(tab, values['-FILE_BOX-'][0])
 
     if event == '2D':
         if len(data) == 0:
