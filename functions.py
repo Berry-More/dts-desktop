@@ -1,8 +1,8 @@
 import lasio
+import PySimpleGUI
 import numpy as np
 import pyvista as pv
 from os.path import join
-import PySimpleGUI as sg
 from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -10,7 +10,6 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.dates import date2num, num2date, AutoDateLocator
 
 # отрисовывать пропуски в данных
-# отрисовывать вместо двух оконо с 2д и 1д одно общее, переписать фигуре1д через аксис
 
 
 color_list = ['mediumblue', 'dodgerblue', 'lightskyblue',
@@ -48,13 +47,14 @@ def load_las(file_names):
         file = lasio.read(file_names[i])
         date = datetime.strptime(file.well['DATE'].value, '%d.%m.20%y %H-%M-%S')
         data.append((date, file))
-        sg.one_line_progress_meter('Loading files', i + 1, len(file_names),
-                                   no_titlebar=True, no_button=True, bar_color=('limegreen', 'grey80'))
+        PySimpleGUI.one_line_progress_meter('Loading files', i + 1, len(file_names),
+                                            no_titlebar=True, no_button=True, bar_color=('limegreen',
+                                                                                         'grey80'))
     data = np.array(data)
     return data[data[:, 0].argsort()]
 
 
-def log_print(window: sg.Window, text: str, color: str):
+def log_print(window: PySimpleGUI.Window, text: str, color: str):
     text = str(datetime.now())[:-7] + ' : ' + text
     window['-OUT-'].print(text, text_color=color)
 
@@ -79,7 +79,7 @@ def find_2_points(x, y, xs, ys):
 # класс отрисовки профиля (горизонтального и вертикального)
 # сделано очень херово, по другому придумать не сумел(
 class Profile:
-    def __init__(self, line, x_axis, y_axis, matrix):
+    def __init__(self, line, x_axis, y_axis, matrix, f1d=None):
         self.line = line  # plt.plot - рисунок который будем выводить (пустой)
         self.background = 0  # Изображение матрицы, которое мы храним, когда профиль движется
         self.x_axis = x_axis  # ось времен
@@ -89,7 +89,10 @@ class Profile:
         self.ys = list(line.get_ydata())  # значения расстояния в пикируемых точкха
         self.traces = []
 
-        self.f1d = 0
+        if f1d is None:
+            self.f1d = 0
+        else:
+            self.f1d = f1d
 
         self.fig = 0
         self.ax = 0
@@ -148,10 +151,10 @@ class Profile:
                 if self.f1d == 0 or not plt.fignum_exists(self.f1d.fig.number):
                     self.f1d = Figure1D()
                     self.f1d.draw_line({'DEPTH': self.y_axis, 'TEMP': self.matrix[index]},
-                                  str(num2date(self.xs[0]))[:-13])
+                                       num2date(self.xs[0]).strftime('%H:%M:%S %m-%d-%Y'))
                 else:
                     self.f1d.draw_line({'DEPTH': self.y_axis, 'TEMP': self.matrix[index]},
-                                  str(num2date(self.xs[0]))[:-13])
+                                       num2date(self.xs[0]).strftime('%H:%M:%S %m-%d-%Y'))
 
                 self.xs = []
                 self.ys = []
@@ -190,11 +193,12 @@ class Profile:
                 self.fig, self.ax = plt.subplots(figsize=(8, 5))
                 self.fig.canvas.set_window_title('Temperature log')
                 plt.plot(self.x_axis, np.array(self.matrix).T[index], alpha=0.7, linewidth=1)
-                plt.xlabel('Time, date')
-                plt.ylabel('Temperature, C°')
+                plt.xlabel('Date, time')
+                plt.ylabel('Temperature, °C')
                 self.ax.xaxis_date()
                 self.ax.xaxis.set_major_locator(AutoDateLocator(minticks=3, maxticks=6))
                 self.fig.autofmt_xdate(rotation=0, ha='center')
+                plt.subplots_adjust(left=0.08, right=0.95, bottom=0.1, top=0.94)
                 self.fig.show()
 
                 self.xs = []
@@ -203,6 +207,7 @@ class Profile:
                 self.update()
 
 
+# класс для профиля через осредненную область
 class AverageRectangle:
     def __init__(self, rect, x_axis, y_axis, matrix):
         self.rect = rect
@@ -259,18 +264,18 @@ class AverageRectangle:
 
             matrix_for_average = []
 
-            for i in range(min(points[0]), max(points[0])+1):
+            for i in range(min(points[0]), max(points[0]) + 1):
                 matrix_for_average.append(self.matrix[i][min(points[1]):max(points[1])])
 
             # рисовка профиля
             self.fig, self.ax = plt.subplots(figsize=(5, 8))
             self.fig.canvas.set_window_title('Average temperature log')
-            plt.plot(np.sum(np.array(matrix_for_average)/(max(points[0])+1 - min(points[0])), axis=0),
+            plt.plot(np.sum(np.array(matrix_for_average) / (max(points[0]) + 1 - min(points[0])), axis=0),
                      self.y_axis[min(points[1]):max(points[1])],
                      alpha=0.7, linewidth=1)
-            plt.ylabel('Depth, m')
-            plt.xlabel('Temperature, C°')
-            plt.subplots_adjust(left=0.12, right=0.95, bottom=0.07, top=0.965)
+            plt.ylabel('Measured depth, m')
+            plt.xlabel('Temperature, °C')
+            plt.subplots_adjust(left=0.15, right=0.95, bottom=0.07, top=0.965)
             self.ax.invert_yaxis()
             self.fig.show()
 
@@ -292,20 +297,21 @@ class AverageRectangle:
             points = find_2_points(self.x_axis, self.y_axis, self.xs, self.ys)
             matrix_for_average = []
 
-            for i in range(min(points[0]), max(points[0])+1):
+            for i in range(min(points[0]), max(points[0]) + 1):
                 matrix_for_average.append(self.matrix[i][min(points[1]):max(points[1])])
 
             # рисовка профиля
             self.fig, self.ax = plt.subplots(figsize=(8, 5))
             self.fig.canvas.set_window_title('Average temperature log')
-            plt.plot(self.x_axis[min(points[0]):max(points[0])+1],
-                     np.sum(np.array(matrix_for_average)/(max(points[1]) - min(points[1])), axis=1),
+            plt.plot(self.x_axis[min(points[0]):max(points[0]) + 1],
+                     np.sum(np.array(matrix_for_average) / (max(points[1]) - min(points[1])), axis=1),
                      alpha=0.7, linewidth=1)
-            plt.xlabel('Time, date')
-            plt.ylabel('Temperature, C°')
+            plt.xlabel('Date, time')
+            plt.ylabel('Temperature, °C')
             self.ax.xaxis_date()
             self.ax.xaxis.set_major_locator(AutoDateLocator(minticks=3, maxticks=6))
             self.fig.autofmt_xdate(rotation=0, ha='center')
+            plt.subplots_adjust(left=0.10, right=0.95, bottom=0.1, top=0.94)
             self.fig.show()
 
             self.xs = []
@@ -327,6 +333,7 @@ class AverageRectangle:
             canvas.blit(axes.bbox)
 
 
+# класс отвечающий за экспорт по области
 class ExportRectangle:
     def __init__(self, rect, x_axis, y_axis, matrix):
         self.rect = rect
@@ -380,7 +387,7 @@ class ExportRectangle:
             points = find_2_points(self.x_axis, self.y_axis, self.xs, self.ys)
             d1 = min(points[1])
             d2 = max(points[1])
-            folder_path = sg.popup_get_folder('Folder for export', no_window=True)
+            folder_path = PySimpleGUI.popup_get_folder('Folder for export', no_window=True)
 
             if folder_path != '':
                 for i in range(min(points[0]), max(points[0])):
@@ -396,8 +403,8 @@ class ExportRectangle:
             self.ys = []
 
 
+# класс отрисовки 1D фигуры
 class Figure1D:
-
     instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -408,18 +415,21 @@ class Figure1D:
     def __del__(self):
         Figure1D.instance = None
 
-    def __init__(self):
+    def __init__(self, figure=None, axes=None):
 
         # figure settings
         plt.style.use('bmh')
-        self.fig, self.ax = plt.subplots(figsize=(5, 8))
-        self.fig.canvas.set_window_title('Temperature log')
+        if figure is None and axes is None:
+            self.fig, self.ax = plt.subplots(figsize=(5, 8))
+            self.fig.canvas.set_window_title('Temperature log')
+        else:
+            self.fig, self.ax = figure, axes
 
         # axes settings
         self.ax.invert_yaxis()
-        self.ax.set_xlabel('Temperature, C°')
-        self.ax.set_ylabel('Depth, m')
-        self.fig.subplots_adjust(left=0.14, right=0.95, bottom=0.07, top=0.965)
+        self.ax.set_xlabel('Temperature, °C')
+        self.ax.set_ylabel('Measured depth, m')
+        self.fig.subplots_adjust(bottom=0.07, top=0.965)
 
         # list of active plots
         self.current_plots = []
@@ -438,7 +448,9 @@ class Figure1D:
             for i in self.current_plots:
                 x_data.append(i[0].get_xdata())
             x_data = np.matrix(x_data)
-            self.ax.set_xlim(x_data.min() - x_data.max()*0.05, x_data.max() + x_data.max()*0.05)
+            self.ax.set_xlim(x_data.min() - x_data.max() * 0.05, x_data.max() + x_data.max() * 0.05)
+            y_data = self.current_plots[0][0].get_ydata()
+            self.ax.set_ylim(max(y_data), min(y_data))
         self.ax.legend()
         self.fig.canvas.draw()
 
@@ -479,10 +491,10 @@ class Figure1D:
 
     def button_add(self, event):
         if event.key == 'a' or event.key == 'ф':
-            base_line_path = sg.popup_get_file('Choose base line .las', no_window=True)
+            base_line_path = PySimpleGUI.popup_get_file('Choose base line .las', no_window=True)
 
             if len(base_line_path) != 0:
-                graph_label = sg.popup_get_text('Enter line name:')
+                graph_label = PySimpleGUI.popup_get_text('Enter line name:')
                 data = load_las([base_line_path])[0][1]
                 self.current_plots.append(self.ax.plot(data['TEMP'], data['DEPTH'],
                                                        alpha=0.7, linewidth=1, label=graph_label))
@@ -515,36 +527,37 @@ def make_figure_2d(data, settings):
 
     # отрисовка
     with plt.style.context('bmh'):
-        fig, ax = plt.subplots(figsize=(9, 8))
-        plt.subplots_adjust(left=0.08, right=0.98, bottom=0.07, top=0.965)
+        fig, ax = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]}, figsize=(14, 8))
         fig.canvas.set_window_title('Thermogram 2D')
-        graph = ax.imshow(np.array(z).T, cmap=settings[0],
-                          interpolation=settings[1],
-                          origin='lower', aspect='auto', resample=False,
-                          interpolation_stage='rgba',
-                          extent=[min(x), max(x), min(y), max(y)])
-        ax.xaxis_date()
+        graph = ax[0].imshow(np.array(z).T, cmap=settings[0],
+                             interpolation=settings[1],
+                             origin='lower', aspect='auto', resample=False,
+                             interpolation_stage='rgba',
+                             extent=[min(x), max(x), min(y), max(y)])
+        ax[0].xaxis_date()
         fig.autofmt_xdate(rotation=0, ha='center')
-        ax.xaxis.set_major_locator(AutoDateLocator(minticks=2, maxticks=7))
-        plt.ylabel('Depth, m')
-        plt.xlabel('Time, date')
-        fig.colorbar(graph, ax=ax)
-        ax.invert_yaxis()
+        ax[0].xaxis.set_major_locator(AutoDateLocator(minticks=2, maxticks=7))
+        ax[0].set_ylabel('Measured depth, m')
+        ax[0].set_xlabel('Date, time')
+        fig.colorbar(graph, ax=ax[0], location='left')
+        plt.subplots_adjust(left=0.001, right=0.95, bottom=0.07, top=0.965)
+        ax[0].invert_yaxis()
 
         # ------------------------------- Инициализация графики -------------------------------------
         # Инициализация линии для профилей
-        line, = ax.plot([], [], '-', c='black', linewidth=0.75)  # пустая линия
-        p = Profile(line, x, y, z)  # элемент класса профиль
+        f1d = Figure1D(fig, ax[1])
+        line, = ax[0].plot([], [], '-', c='black', linewidth=0.75)  # пустая линия
+        p = Profile(line, x, y, z, f1d)  # элемент класса профиль
 
         # Инициализация прямоугольника для осреднения
         rect = Rectangle((min(x), min(y)), 0, 0, fill=False, color='black', linewidth=1)
-        ax.add_patch(rect)
+        ax[0].add_patch(rect)
         a = AverageRectangle(rect, x, y, z)
 
         # Инициализация прямоугольника для экспорта
         rect_export = Rectangle((min(x), min(y)), 0, 0, fill=False,
                                 color='white', linewidth=1, linestyle='dashed')
-        ax.add_patch(rect_export)
+        ax[0].add_patch(rect_export)
         e = ExportRectangle(rect_export, x, y, z)
 
         # ------------------------------- Инициализация графики -------------------------------------
@@ -559,6 +572,7 @@ def make_figure_2d(data, settings):
                 p.update()
                 p.cid_picking = p.line.figure.canvas.mpl_connect('button_press_event', p.picking_x)
                 p.cid_motion = p.line.figure.canvas.mpl_connect('motion_notify_event', p.motion_x)
+
         plt.connect('key_press_event', log_x_button_func)
 
         # Профиль по Depth
@@ -571,11 +585,12 @@ def make_figure_2d(data, settings):
                 p.update()
                 p.cid_picking = p.line.figure.canvas.mpl_connect('button_press_event', p.picking_y)
                 p.cid_motion = p.line.figure.canvas.mpl_connect('motion_notify_event', p.motion_y)
+
         plt.connect('key_press_event', log_y_button_func)
 
         # профиль по Time
         def average_y_button_func(event):
-            if event.key == 'v' or event.key == 'м':
+            if event.key == '[' or event.key == 'х':
                 p.disconnect()
                 a.disconnect()
                 e.disconnect()
@@ -586,11 +601,12 @@ def make_figure_2d(data, settings):
                 a.cid_picking = a.rect.figure.canvas.mpl_connect('button_press_event', a.picking)
                 a.cid_motion = a.rect.figure.canvas.mpl_connect('motion_notify_event', a.motion)
                 a.cid_release = a.rect.figure.canvas.mpl_connect('button_release_event', a.release_y)
+
         plt.connect('key_press_event', average_y_button_func)
 
         # профиль по Depth
         def average_x_button_func(event):
-            if event.key == 'b' or event.key == 'и':
+            if event.key == ']' or event.key == 'ъ':
                 p.disconnect()
                 a.disconnect()
                 e.disconnect()
@@ -601,6 +617,7 @@ def make_figure_2d(data, settings):
                 a.cid_picking = a.rect.figure.canvas.mpl_connect('button_press_event', a.picking)
                 a.cid_motion = a.rect.figure.canvas.mpl_connect('motion_notify_event', a.motion)
                 a.cid_release = a.rect.figure.canvas.mpl_connect('button_release_event', a.release_x)
+
         plt.connect('key_press_event', average_x_button_func)
 
         # Функция экспорта
@@ -615,17 +632,21 @@ def make_figure_2d(data, settings):
                 e.update()
                 e.cid_picking = e.rect.figure.canvas.mpl_connect('button_press_event', e.picking)
                 e.cid_motion = e.rect.figure.canvas.mpl_connect('motion_notify_event', e.motion)
+
         plt.connect('key_press_event', export_button_func)
 
         # Функция очистки
         def clear_button_func(event):
             if event.key == 'c' or event.key == 'с':
                 p.clear()
+
         plt.connect('key_press_event', clear_button_func)
 
         plt.show(block=True)
 
 
+# класс отрисовки профиля в 3D
+# самый лучший кусок этого кода
 class Profile3D:
     def __init__(self, plotter, basic_mesh):
         self.plotter = plotter
@@ -635,7 +656,7 @@ class Profile3D:
         self.depth_mode = True
 
         # key events
-        self.plotter.add_key_event('l', self.clicking)
+        self.plotter.add_key_event('z', self.clicking)
         self.plotter.add_key_event('c', self.clear)
 
     def clicking(self):
@@ -689,14 +710,14 @@ class Profile3D:
     def mode_change(self, position):
         if self.depth_mode:
             self.depth_mode = False
-            self.choosing(self.points_set[int(len(self.points_set)//2)])
+            self.choosing(self.points_set[int(len(self.points_set) // 2)])
         else:
             self.depth_mode = True
-            self.choosing(self.points_set[int(len(self.points_set)//2)])
+            self.choosing(self.points_set[int(len(self.points_set) // 2)])
 
     @staticmethod
     def show(tab: dict, x_axes: str):
-        chart = pv.Chart2D(x_label=x_axes, y_label='Temperature, C°')
+        chart = pv.Chart2D(x_label=x_axes, y_label='Temperature, °C')
         chart.line(x=tab['DEPTH'], y=tab['TEMP'], width=2)
 
         chart.x_axis.label_size = 20
@@ -718,7 +739,7 @@ def make_figure_3d(data, settings):
     for i in data:
         x.append(i[0].timestamp())
         z.append(list(i[1]['TEMP']))
-    x = (np.array(x) - min(x))/60
+    x = (np.array(x) - min(x)) / 60
 
     for i in z:
         if len(z[0]) != len(i):
