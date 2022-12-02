@@ -76,6 +76,13 @@ def find_2_points(x, y, xs, ys):
     return [x_ind, y_ind]
 
 
+# коррекция оси
+def get_extend(x, y):
+    x_comp = (max(x) - min(x)) * 0.1 * (1/len(x))
+    y_comp = (max(y) - min(y)) * 0.1 * (1 / len(y))
+    return [min(x) - x_comp, max(x) + x_comp, min(y) - y_comp, max(y) + y_comp]
+
+
 # класс отрисовки профиля (горизонтального и вертикального)
 # сделано очень херово, по другому придумать не сумел(
 class Profile:
@@ -434,6 +441,7 @@ class Figure1D:
         # list of active plots
         self.current_plots = []
         self.borders = []
+        self.signs = []
 
         # events
         self.fig.canvas.mpl_connect('key_press_event', self.button_clear)
@@ -458,22 +466,24 @@ class Figure1D:
         if plt.fignum_exists(self.fig.number):
             self.current_plots.append(self.ax.plot(tab['TEMP'], tab['DEPTH'], alpha=0.7, linewidth=1, label=name))
             self.update()
-            self.fig.show()
+            plt.show()
         else:
             self.__init__()
             self.current_plots.append(self.ax.plot(tab['TEMP'], tab['DEPTH'], alpha=0.7, linewidth=1, label=name))
             self.update()
-            self.fig.show()
+            plt.show()
 
     def clear(self):
         for i in self.current_plots:
             i = i.pop(0)
             i.remove()
-        for i in self.borders:
-            i = i.pop(0)
-            i.remove()
+        for i in range(len(self.borders)):
+            b = self.borders[i].pop(0)
+            b.remove()
+            self.signs[i].remove()
         self.current_plots = []
         self.borders = []
+        self.signs = []
         self.update()
 
     def picking(self, event):
@@ -482,7 +492,12 @@ class Figure1D:
                 return
             self.borders.append(self.ax.plot([-1000, 1000],
                                              [event.ydata, event.ydata],
-                                             alpha=0.7, linewidth=0.5, color='black'))
+                                             alpha=0.5, linewidth=0.5, color='black'))
+
+            text = PySimpleGUI.popup_get_text('Enter signature:')
+            x_pos = self.ax.get_xlim()[0] + abs(self.ax.get_xlim()[1] - self.ax.get_xlim()[0]) * 0.05
+            y_pos = event.ydata - abs(self.ax.get_ylim()[1] - self.ax.get_ylim()[0]) * 0.01
+            self.signs.append(self.ax.text(x_pos, y_pos, text, alpha=0.5))
             self.update()
 
     def button_clear(self, event):
@@ -533,7 +548,7 @@ def make_figure_2d(data, settings):
                              interpolation=settings[1],
                              origin='lower', aspect='auto', resample=False,
                              interpolation_stage='rgba',
-                             extent=[min(x), max(x), min(y), max(y)])
+                             extent=get_extend(x, y))
         ax[0].xaxis_date()
         fig.autofmt_xdate(rotation=0, ha='center')
         ax[0].xaxis.set_major_locator(AutoDateLocator(minticks=2, maxticks=7))
@@ -699,11 +714,11 @@ class Profile3D:
 
         if self.depth_mode:
             data = {'DEPTH': self.points_set.T[1], 'TEMP': self.points_set.T[2]}
-            self.show(data, 'Depth, m')
+            self.show(data, 'Depth, m', self.plotter)
 
         else:
             data = {'DEPTH': self.points_set.T[0], 'TEMP': self.points_set.T[2]}
-            self.show(data, 'Time, min')
+            self.show(data, 'Time, min', self.plotter)
 
         self.points_set = []
 
@@ -716,7 +731,7 @@ class Profile3D:
             self.choosing(self.points_set[int(len(self.points_set) // 2)])
 
     @staticmethod
-    def show(tab: dict, x_axes: str):
+    def show(tab: dict, x_axes: str, plotter):
         chart = pv.Chart2D(x_label=x_axes, y_label='Temperature, °C')
         chart.line(x=tab['DEPTH'], y=tab['TEMP'], width=2)
 
@@ -727,6 +742,7 @@ class Profile3D:
 
         pv.global_theme.title = 'Line'
         chart.show()
+        plotter.add_camera_orientation_widget()
 
 
 # функция отрисовки матрицы в 3D
@@ -757,8 +773,8 @@ def make_figure_3d(data, settings):
     pv.global_theme.cmap = settings[0]
     pv.global_theme.font.color = 'black'
 
-    p = pv.Plotter(lighting=None, notebook=False, border=True)
-    p.set_scale(xscale=1 / max(x), yscale=1 / max(y), zscale=0.5 / np.matrix(z).max())
+    surf.scale([1 / max(x), 1 / max(y), 0.5 / np.matrix(z).max()], inplace=True)
+    p = pv.Plotter(notebook=False)
 
     p.set_background('white')
     p.add_mesh(surf, show_scalar_bar=False)

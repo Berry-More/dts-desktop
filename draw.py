@@ -89,11 +89,10 @@ while True:
         if len(tab) == 0:
             log_print(window, 'Data not exists!', 'red')
         else:
-            if f1d is None:
-                f1d = Figure1D()
-                f1d.draw_line(tab, values['-FILE_BOX-'][0])
-            else:
-                f1d.draw_line(tab, values['-FILE_BOX-'][0])
+            window.Hide()
+            f1d = Figure1D()
+            f1d.draw_line(tab, values['-FILE_BOX-'][0])
+            window.UnHide()
 
     if event == '2D':
         if len(data) == 0:
