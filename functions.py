@@ -2,9 +2,10 @@ import lasio
 import PySimpleGUI
 import numpy as np
 import pyvista as pv
+import matplotlib.pyplot as plt
+
 from os.path import join
 from datetime import datetime
-import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.dates import date2num, num2date, AutoDateLocator
@@ -86,7 +87,7 @@ def get_extend(x, y):
 # класс отрисовки профиля (горизонтального и вертикального)
 # сделано очень херово, по другому придумать не сумел(
 class Profile:
-    def __init__(self, line, x_axis, y_axis, matrix, f1d=None):
+    def __init__(self, line, x_axis, y_axis, matrix, f1d=None, f1t=None):
         self.line = line  # plt.plot - рисунок который будем выводить (пустой)
         self.background = 0  # Изображение матрицы, которое мы храним, когда профиль движется
         self.x_axis = x_axis  # ось времен
@@ -96,10 +97,8 @@ class Profile:
         self.ys = list(line.get_ydata())  # значения расстояния в пикируемых точкха
         self.traces = []
 
-        if f1d is None:
-            self.f1d = 0
-        else:
-            self.f1d = f1d
+        self.f1d = f1d or 0
+        self.f1t = f1t or 0
 
         self.fig = 0
         self.ax = 0
@@ -153,10 +152,9 @@ class Profile:
                 self.traces.append(self.line.axes.plot([self.xs[0], self.xs[0]],
                                                        [min(self.y_axis), max(self.y_axis)],
                                                        c='black', linewidth=0.75, linestyle='--'))
-
                 # рисовка профиля
                 if self.f1d == 0 or not plt.fignum_exists(self.f1d.fig.number):
-                    self.f1d = Figure1D()
+                    self.f1d = FigureDepth()
                     self.f1d.draw_line({'DEPTH': self.y_axis, 'TEMP': self.matrix[index]},
                                        num2date(self.xs[0]).strftime('%H:%M:%S %m-%d-%Y'))
                 else:
@@ -197,16 +195,14 @@ class Profile:
                 index = find_point(self.y_axis, self.ys[0])
 
                 # рисовка профиля
-                self.fig, self.ax = plt.subplots(figsize=(8, 5))
-                self.fig.canvas.set_window_title('Temperature log')
-                plt.plot(self.x_axis, np.array(self.matrix).T[index], alpha=0.7, linewidth=1)
-                plt.xlabel('Date, time')
-                plt.ylabel('Temperature, °C')
-                self.ax.xaxis_date()
-                self.ax.xaxis.set_major_locator(AutoDateLocator(minticks=3, maxticks=6))
-                self.fig.autofmt_xdate(rotation=0, ha='center')
-                plt.subplots_adjust(left=0.08, right=0.95, bottom=0.1, top=0.94)
-                self.fig.show()
+                if self.f1t == 0 or not plt.fignum_exists(self.f1t.fig.number):
+                    self.f1t = FigureTime()
+                    self.f1t.draw_line({'TIME': self.x_axis, 'TEMP': np.array(self.matrix).T[index]},
+                                       str(self.y_axis[index]) + ' м')
+                    plt.show()
+                else:
+                    self.f1t.draw_line({'TIME': self.x_axis, 'TEMP': np.array(self.matrix).T[index]},
+                                       str(self.y_axis[index]) + ' м')
 
                 self.xs = []
                 self.ys = []
@@ -268,9 +264,7 @@ class AverageRectangle:
                 return
             self.disconnect()
             points = find_2_points(self.x_axis, self.y_axis, self.xs, self.ys)
-
             matrix_for_average = []
-
             for i in range(min(points[0]), max(points[0]) + 1):
                 matrix_for_average.append(self.matrix[i][min(points[1]):max(points[1])])
 
@@ -411,17 +405,7 @@ class ExportRectangle:
 
 
 # класс отрисовки 1D фигуры
-class Figure1D:
-    instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if cls.instance is None:
-            cls.instance = super().__new__(cls)
-        return cls.instance
-
-    def __del__(self):
-        Figure1D.instance = None
-
+class FigureDepth:
     def __init__(self, figure=None, axes=None):
 
         # figure settings
@@ -466,12 +450,6 @@ class Figure1D:
         if plt.fignum_exists(self.fig.number):
             self.current_plots.append(self.ax.plot(tab['TEMP'], tab['DEPTH'], alpha=0.7, linewidth=1, label=name))
             self.update()
-            plt.show()
-        else:
-            self.__init__()
-            self.current_plots.append(self.ax.plot(tab['TEMP'], tab['DEPTH'], alpha=0.7, linewidth=1, label=name))
-            self.update()
-            plt.show()
 
     def clear(self):
         for i in self.current_plots:
@@ -492,12 +470,12 @@ class Figure1D:
                 return
             self.borders.append(self.ax.plot([-1000, 1000],
                                              [event.ydata, event.ydata],
-                                             alpha=0.5, linewidth=0.5, color='black'))
+                                             alpha=1, linewidth=1, color='red'))
 
             text = PySimpleGUI.popup_get_text('Enter signature:')
-            x_pos = self.ax.get_xlim()[0] + abs(self.ax.get_xlim()[1] - self.ax.get_xlim()[0]) * 0.05
-            y_pos = event.ydata - abs(self.ax.get_ylim()[1] - self.ax.get_ylim()[0]) * 0.01
-            self.signs.append(self.ax.text(x_pos, y_pos, text, alpha=0.5))
+            x_pos = self.ax.get_xlim()[0] + abs(self.ax.get_xlim()[1] - self.ax.get_xlim()[0]) * 0.01
+            y_pos = event.ydata - abs(self.ax.get_ylim()[1] - self.ax.get_ylim()[0]) * 0.005
+            self.signs.append(self.ax.text(x_pos, y_pos, text, alpha=1, color='red'))
             self.update()
 
     def button_clear(self, event):
@@ -514,6 +492,91 @@ class Figure1D:
                 self.current_plots.append(self.ax.plot(data['TEMP'], data['DEPTH'],
                                                        alpha=0.7, linewidth=1, label=graph_label))
                 self.update()
+
+    def button_borders(self, event):
+        if event.key == 'b' or event.key == 'и':
+            if self.cid_picking == 0:
+                self.cid_picking = self.fig.canvas.mpl_connect('button_press_event', self.picking)
+            else:
+                self.fig.canvas.mpl_disconnect(self.cid_picking)
+                self.cid_picking = 0
+
+
+# ПЕРЕДЕЛАТЬ ДЛЯ ОСРЕДНЕНИЙ ТОЖЕ
+class FigureTime:
+    def __init__(self):
+
+        # figure settings
+        plt.style.use('bmh')
+        self.fig, self.ax = plt.subplots(figsize=(8, 5))
+        self.fig.canvas.set_window_title('Temperature log')
+
+        # axes settings
+        self.ax.set_xlabel('Date, time')
+        self.ax.set_ylabel('Temperature, °C')
+        self.ax.xaxis_date()
+        self.ax.xaxis.set_major_locator(AutoDateLocator(minticks=3, maxticks=6))
+        self.fig.autofmt_xdate(rotation=0, ha='center')
+        plt.subplots_adjust(left=0.08, right=0.95, bottom=0.1, top=0.94)
+
+        # list of active plots
+        self.current_plots = []
+        self.borders = []
+        self.signs = []
+
+        # events
+        self.fig.canvas.mpl_connect('key_press_event', self.button_clear)
+        self.fig.canvas.mpl_connect('key_press_event', self.button_borders)
+
+        self.cid_picking = 0
+
+    def update(self):
+        if len(self.current_plots) > 0:
+            y_data = []
+            for i in self.current_plots:
+                y_data.append(i[0].get_ydata())
+            y_data = np.matrix(y_data)
+            self.ax.set_ylim(y_data.min() - y_data.max() * 0.05, y_data.max() + y_data.max() * 0.05)
+            x_data = self.current_plots[0][0].get_xdata()
+            self.ax.set_xlim(max(x_data), min(x_data))
+        self.ax.legend()
+        self.fig.canvas.draw()
+
+    def draw_line(self, tab, name):
+        if plt.fignum_exists(self.fig.number):
+            self.current_plots.append(self.ax.plot(tab['TIME'][::-1], tab['TEMP'][::-1], alpha=0.7, linewidth=1, label=name))
+            self.update()
+
+    def clear(self):
+        for i in self.current_plots:
+            i = i.pop(0)
+            i.remove()
+        for i in range(len(self.borders)):
+            b = self.borders[i].pop(0)
+            b.remove()
+            self.signs[i].remove()
+        self.current_plots = []
+        self.borders = []
+        self.signs = []
+        self.update()
+
+    def picking(self, event):
+        if event.button == 1:  # условие при нажатии на левую кнопку мыши
+            if event.inaxes != self.ax:
+                return
+            self.borders.append(self.ax.plot([event.xdata, event.xdata],
+                                             [-1000, 1000],
+                                             alpha=1, linewidth=1, color='red'))
+
+            text = PySimpleGUI.popup_get_text('Enter signature:')
+            y_pos = self.ax.get_ylim()[0] + abs(self.ax.get_ylim()[1] - self.ax.get_ylim()[0]) * 0.01
+            x_pos = event.xdata - abs(self.ax.get_xlim()[1] - self.ax.get_xlim()[0]) * 0.005
+            self.signs.append(self.ax.text(x_pos, y_pos, text, alpha=1, color='red'))
+            self.update()
+
+    def button_clear(self, event):
+        if event.key == 'c' or event.key == 'с':
+            self.clear()
 
     def button_borders(self, event):
         if event.key == 'b' or event.key == 'и':
@@ -560,7 +623,7 @@ def make_figure_2d(data, settings):
 
         # ------------------------------- Инициализация графики -------------------------------------
         # Инициализация линии для профилей
-        f1d = Figure1D(fig, ax[1])
+        f1d = FigureDepth(fig, ax[1])
         line, = ax[0].plot([], [], '-', c='black', linewidth=0.75)  # пустая линия
         p = Profile(line, x, y, z, f1d)  # элемент класса профиль
 

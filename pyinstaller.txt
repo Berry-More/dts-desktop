@@ -11,4 +11,8 @@ vtkmodules.vtkViewsCore
 
 это так называемые пакеты скрытого импорта, их не видит пайинсталер их надо добавлять вручную
 
-pyinstaller -wF draw.py -n DTSview --hidden-import=vtkmodules.vtkIOCore --hidden-import=vtkmodules.vtkCommonMisc --hidden-import=vtkmodules.vtkFiltersGeneral --hidden-import=vtkmodules.vtkIOXML --hidden-import=vtkmodules.vtkIOXMLParser --hidden-import=vtkmodules.vtkRenderingHyperTreeGrid --hidden-import=vtkmodules.vtkImagingMath --hidden-import=vtkmodules.vtkViewsCore --icon=image.ico
+одним файлом
+pyinstaller -wF main.py -n DTSview --hidden-import=vtkmodules.vtkIOCore --hidden-import=vtkmodules.vtkCommonMisc --hidden-import=vtkmodules.vtkFiltersGeneral --hidden-import=vtkmodules.vtkIOXML --hidden-import=vtkmodules.vtkIOXMLParser --hidden-import=vtkmodules.vtkRenderingHyperTreeGrid --hidden-import=vtkmodules.vtkImagingMath --hidden-import=vtkmodules.vtkViewsCore --icon=image.ico
+
+папкой с файлами
+pyinstaller -w main.py -n DTSview --hidden-import=vtkmodules.vtkIOCore --hidden-import=vtkmodules.vtkCommonMisc --hidden-import=vtkmodules.vtkFiltersGeneral --hidden-import=vtkmodules.vtkIOXML --hidden-import=vtkmodules.vtkIOXMLParser --hidden-import=vtkmodules.vtkRenderingHyperTreeGrid --hidden-import=vtkmodules.vtkImagingMath --hidden-import=vtkmodules.vtkViewsCore --icon=image.ico
