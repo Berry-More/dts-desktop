@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 
 
 def main():
-    # Задание объектов интерфейса
 
+    # Задание объектов интерфейса
     im = 'image.ico'
 
     sg.theme('SystemDefaultForReal')  # Default1
@@ -35,9 +35,7 @@ def main():
                sg.VSeparator(),
                sg.Column(right_col, element_justification='c')]]
 
-    #
     # Создание рабочего окна и цикла
-
     window = sg.Window("DTSview", layout, icon=im)
 
     data = []

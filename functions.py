@@ -10,8 +10,6 @@ from matplotlib.patches import Rectangle
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.dates import date2num, num2date, AutoDateLocator
 
-# отрисовывать пропуски в данных
-
 
 color_list = ['mediumblue', 'dodgerblue', 'lightskyblue',
               'springgreen', 'greenyellow', 'yellow',
@@ -199,7 +197,7 @@ class Profile:
                     self.f1t = FigureTime()
                     self.f1t.draw_line({'TIME': self.x_axis, 'TEMP': np.array(self.matrix).T[index]},
                                        str(self.y_axis[index]) + ' м')
-                    plt.show()
+                    plt.show(block=True)
                 else:
                     self.f1t.draw_line({'TIME': self.x_axis, 'TEMP': np.array(self.matrix).T[index]},
                                        str(self.y_axis[index]) + ' м')
@@ -540,6 +538,7 @@ class FigureTime:
             x_data = self.current_plots[0][0].get_xdata()
             self.ax.set_xlim(max(x_data), min(x_data))
         self.ax.legend()
+        self.ax.invert_xaxis()
         self.fig.canvas.draw()
 
     def draw_line(self, tab, name):
